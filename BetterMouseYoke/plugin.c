@@ -76,6 +76,13 @@ static int find_xplane_window(HWND *out_hwnd)
 }
 #endif
 
+/**
+ * X-Plane 11 Plugin Entry Point.
+ *
+ * Called when a plugin is initially loaded into X-Plane 11. If 0 is returned,
+ * the plugin will be unloaded immediately with no further calls to any of
+ * its callbacks.
+ */
 PLUGIN_API int XPluginStart(char *name, char *sig, char *desc) {
     /* SDK docs state buffers are at least 256 bytes. */
     sprintf(name, "%s (v%s)", PLUGIN_NAME, PLUGIN_VERSION);
