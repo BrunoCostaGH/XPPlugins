@@ -11,7 +11,7 @@
 #define PLUGIN_SIG          "S22.ToggleMouseLook"
 #define PLUGIN_DESCRIPTION  "Adds new commands for better control of mouse " \
                             "look inside the cockpit."
-#define PLUGIN_VERSION      "1.2"
+#define PLUGIN_VERSION      "1.2.1"
 
 static XPLMCommandRef toggle_mouse_look;
 static XPLMCommandRef hold_mouse_look;
@@ -130,6 +130,35 @@ int draw_cb(XPLMDrawingPhase phase, int before, void *ref) {
 static HWND xp_hwnd;
 static WNDPROC old_wnd_proc;
 
+static BOOL CALLBACK find_xplane_window_cb(HWND hwnd, LPARAM lParam)
+{
+    char class_name[64] = { 0 };
+    if (GetClassNameA(hwnd, class_name, sizeof(class_name))) {
+        if (strcmp(class_name, "X-System") == 0) {
+            HWND* out = (HWND*)lParam;
+            *out = hwnd;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static int find_xplane_window(HWND* out_hwnd)
+{
+    *out_hwnd = NULL;
+    if (EnumWindows(find_xplane_window_cb, (LPARAM)out_hwnd) && *out_hwnd) {
+        return 1;
+    }
+    if (*out_hwnd) {
+        return 1;
+    }
+    *out_hwnd = FindWindowA("X-System", "X-System");
+    if (*out_hwnd) {
+        return 1;
+    }
+    return 0;
+}
+
 LRESULT CALLBACK xp_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam,
     LPARAM lParam) {
     switch (msg) {
@@ -149,9 +178,8 @@ LRESULT CALLBACK xp_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam,
 }
 
 int hook_wnd_proc() {
-    xp_hwnd = FindWindowA("X-System", "X-System");
-    if (!xp_hwnd) {
-        _log("could not find X-Plane 11 window");
+    if (!find_xplane_window(&xp_hwnd)) {
+        _log("could not find X-Plane window");
         return 0;
     }
     old_wnd_proc = (WNDPROC) SetWindowLongPtrA(xp_hwnd, GWLP_WNDPROC,

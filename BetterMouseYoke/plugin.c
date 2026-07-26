@@ -14,7 +14,7 @@
 #define PLUGIN_DESCRIPTION  "Does away with X-Plane's idiotic centered little box " \
                             "for mouse steering that has caused much grieve and "   \
                             "countless loss of virtual lives."
-#define PLUGIN_VERSION      "1.5"
+#define PLUGIN_VERSION      "1.5.1"
 
 #define RUDDER_DEFL_DIST    200
 #define RUDDER_RET_SPEED    2.0f
@@ -45,15 +45,37 @@ static HCURSOR yoke_cursor;
 static HCURSOR rudder_cursor;
 static HCURSOR arrow_cursor;
 static HCURSOR(WINAPI *true_set_cursor) (HCURSOR cursor) = SetCursor;
+
+static BOOL CALLBACK find_xplane_window_cb(HWND hwnd, LPARAM lParam)
+{
+    char class_name[64] = { 0 };
+    if (GetClassNameA(hwnd, class_name, sizeof(class_name))) {
+        if (strcmp(class_name, "X-System") == 0) {
+            HWND *out = (HWND *)lParam;
+            *out = hwnd;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static int find_xplane_window(HWND *out_hwnd)
+{
+    *out_hwnd = NULL;
+    if (EnumWindows(find_xplane_window_cb, (LPARAM)out_hwnd) && *out_hwnd) {
+        return 1;
+    }
+    if (*out_hwnd) {
+		return 1;
+    }
+    *out_hwnd = FindWindowA("X-System", "X-System");
+    if (*out_hwnd) {
+        return 1;
+    }
+    return 0;
+}
 #endif
 
-/**
- * X-Plane 11 Plugin Entry Point.
- *
- * Called when a plugin is initially loaded into X-Plane 11. If 0 is returned,
- * the plugin will be unloaded immediately with no further calls to any of
- * its callbacks.
- */
 PLUGIN_API int XPluginStart(char *name, char *sig, char *desc) {
     /* SDK docs state buffers are at least 256 bytes. */
     sprintf(name, "%s (v%s)", PLUGIN_NAME, PLUGIN_VERSION);
@@ -94,9 +116,8 @@ PLUGIN_API int XPluginStart(char *name, char *sig, char *desc) {
     rudder_defl_dist = ini_geti("rudder_deflection_distance", RUDDER_DEFL_DIST);
     rudder_ret_spd = ini_getf("rudder_return_speed", RUDDER_RET_SPEED);
 #ifdef IBM
-    xp_hwnd = FindWindowA("X-System", "X-System");
-    if (!xp_hwnd) {
-        _log("could not find X-Plane 11 window");
+    if (!find_xplane_window(&xp_hwnd)) {
+        _log("could not find X-Plane window");
         return 0;
     }
     if (!hook_set_cursor(1)) {

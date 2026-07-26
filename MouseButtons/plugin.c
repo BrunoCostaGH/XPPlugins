@@ -13,7 +13,7 @@
 #define PLUGIN_DESCRIPTION  "Enables the use of extra mouse buttons and allows " \
                             "the right mouse button and mouse wheel to be re-"   \
                             "assigned to arbitrary commands."
-#define PLUGIN_VERSION      "1.0"
+#define PLUGIN_VERSION      "1.0.1"
 
 /**
  * X-Plane 11 Plugin Entry Point.
@@ -96,6 +96,35 @@ PLUGIN_API void XPluginReceiveMessage(XPLMPluginID from, int msg, void *param) {
 static HWND xp_hwnd;
 static WNDPROC old_wnd_proc;
 
+static BOOL CALLBACK find_xplane_window_cb(HWND hwnd, LPARAM lParam)
+{
+    char class_name[64] = { 0 };
+    if (GetClassNameA(hwnd, class_name, sizeof(class_name))) {
+        if (strcmp(class_name, "X-System") == 0) {
+            HWND* out = (HWND*)lParam;
+            *out = hwnd;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static int find_xplane_window(HWND* out_hwnd)
+{
+    *out_hwnd = NULL;
+    if (EnumWindows(find_xplane_window_cb, (LPARAM)out_hwnd) && *out_hwnd) {
+        return 1;
+    }
+    if (*out_hwnd) {
+        return 1;
+    }
+    *out_hwnd = FindWindowA("X-System", "X-System");
+    if (*out_hwnd) {
+        return 1;
+    }
+    return 0;
+}
+
 static mbutton_t wm_to_mbutton(UINT msg, WPARAM wParam, int *state) {
     switch (msg) {
     case WM_LBUTTONDOWN:
@@ -169,9 +198,8 @@ LRESULT CALLBACK xp_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam,
 }
 
 int hook_wnd_proc() {
-    xp_hwnd = FindWindowA("X-System", "X-System");
-    if (!xp_hwnd) {
-        _log("could not find X-Plane 11 window");
+    if (!find_xplane_window(&xp_hwnd)) {
+        _log("could not find X-Plane window");
         return 0;
     }
     old_wnd_proc = (WNDPROC)SetWindowLongPtrA(xp_hwnd, GWLP_WNDPROC,
